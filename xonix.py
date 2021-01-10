@@ -9,13 +9,15 @@ import sys
 
 sys.setrecursionlimit(100000)
 pygame.init()
-size = width, height = 320, 240
+size = width, height = 640, 480
 
 pygame.display.set_mode(size)
 
 def checkfield(g, x, y, val):
     if g[x, y] == 0:
 #        print(f"enter checkfield {x=}, {y=}, {g[x, y]=}")
+        if val == 26:
+            val = 10
         if val == 10:
             g[x, y] = 26
         else:
@@ -61,14 +63,15 @@ class Hazard:
 
     def step(self, game):
         global terminated
-        global hazardCount
+        global won
         global stepEvent
+        global players
 
         nx = self.x + self.sx
         ny = self.y + self.sy
-        if game[nx, ny] == 2:
+        if game[nx, ny] == 2 or players[0].x == nx and players[0].y == ny:
             terminated = True
-            hazardCount = 0
+            won = False
             stepEvent.set()
         if game[nx, ny] != 0:
             if game[self.x + self.sx, self.y] != 0:
@@ -123,8 +126,10 @@ class Player:
         if game[self.x, self.y] == 0:
             game[self.x, self.y] = 2
             self.linedone = True
-        elif game[nx, ny] == 1 and self.linedone:
+        if game[self.x, self.y] == 1 and self.linedone:
             self.linedone = False
+            self.sx, self.sy = 0, 0
+            nx, ny = self.x, self.y
             if reevaluate(game) >= 0.75:
                 terminated = True
                 stepEvent.set()
@@ -154,6 +159,7 @@ class Player:
 hazardCount = 1
 
 def redraw():
+    brick_size = 8
     global game
     
     colours = { 0: (0, 0, 0), 1: (255, 255, 255), 10: (255, 0, 0), 2: (128, 128, 0) }
@@ -161,8 +167,8 @@ def redraw():
     for x in range(80):
         for y in range(60):
             if game[x, y] != -1:
-                pygame.draw.rect(sf, colours[game[x, y]], pygame.Rect(x * 4, y * 4, 4, 4))
-    pygame.draw.rect(sf, (0, 255, 0), pygame.Rect(players[0].x * 4, players[0].y * 4, 4, 4)) 
+                pygame.draw.rect(sf, colours[game[x, y]], pygame.Rect(x * brick_size, y * brick_size, brick_size, brick_size))
+    pygame.draw.rect(sf, (0, 255, 0), pygame.Rect(players[0].x * brick_size, players[0].y * brick_size, brick_size, brick_size)) 
     pygame.display.flip()
 
 async def main():
@@ -174,6 +180,7 @@ async def main():
     global quit
 
     pygame.display.set_mode(size)
+    pygame.display.set_caption('Xonix - a simple Python remake')
 
     stepEvent = asyncio.Event()
 
@@ -210,6 +217,7 @@ quit = False
 
 while not quit:
     terminated = False
+    won = True
     game = np.zeros((80, 60), dtype='B')
 
     game[0, :] = [ 1 for i in range(60) ]
@@ -224,4 +232,5 @@ while not quit:
     players = []
     
     asyncio.run(main())
-    hazardCount += 1
+    if won:
+        hazardCount += 1
