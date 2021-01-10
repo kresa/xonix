@@ -84,6 +84,9 @@ class Hazard:
         if game[nx, ny] == 0:
             self.x = nx
             self.y = ny
+        else:
+            self.sx = -self.sx
+            self.sy = -self.sy
         game[self.x, self.y] = 10
 #        print(f"hazard {self.x=}, {self.y=}, {self.sx=}, {self.sy=}, {nx=}, {ny=}, {game[nx, ny]=}")
 
