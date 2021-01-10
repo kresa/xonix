@@ -69,7 +69,7 @@ class Hazard:
 
         nx = self.x + self.sx
         ny = self.y + self.sy
-        if game[nx, ny] == 2 or players[0].x == nx and players[0].y == ny:
+        if game[nx, ny] == 2 or players[0].x == nx and players[0].y == ny and game[players[0].x, players[0].y] == 0:
             terminated = True
             won = False
             stepEvent.set()
