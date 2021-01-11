@@ -9,44 +9,47 @@ import sys
 
 sys.setrecursionlimit(100000)
 pygame.init()
-size = width, height = 640, 480
 
+np.set_printoptions(threshold=sys.maxsize)
+
+font = pygame.font.SysFont('freesansbold.ttf', 24)
+
+img = font.render('XXXXX', True, (255, 255, 255), (0, 0, 0))
+size = width, height = 640, 480 + img.get_rect().height
 pygame.display.set_mode(size)
 
-def checkfield(g, x, y, val):
-    if g[x, y] == 0:
-#        print(f"enter checkfield {x=}, {y=}, {g[x, y]=}")
-        if val == 26:
-            val = 10
-        if val == 10:
-            g[x, y] = 26
-        else:
-            g[x, y] = 16
-        rv = val
+percent = 0.0
+
+def updateStatus():
+    global percent
+    global hazardCount
+    global font
+    global img
+
+    s = f"Level: {hazardCount}      Covered:   {percent*100:.1f}    Xonix was brought to you by KresaSoft"
+    img = font.render(s, True, (255, 255, 255), (0, 0, 0))
+
+def checkfield(g, x, y):
+#    print(f"{x=}, {y=}")
+    if g[x, y] == 0 or g[x, y] == 10:
+        g[x, y] = 26
         for i in [-1, 0, 1]:
             for j in [-1, 0, 1]:
                 if (i == 0 and j == 0) or x + i < 0 or x + i >= 80 or y + j < 0 or y + j >= 60:
                     continue
-                r = checkfield(g, x + i, y + j, rv)
-                if r == 10 or r == 26:
-                    rv = 10
-        if rv == 10:
-            g[x, y] = 26
-        else:
-            g[x, y] = 1
-#        print(f"checkfield {x=}, {y=}, {rv=}")
-        return rv
-    else:
-#        print(f"return checkfield {x=}, {y=}, {g[x, y]=}")
-        return g[x, y]
+                checkfield(g, x + i, y + j)
+        g[x, y] = 26
 
 def reevaluate(g):
     global width
     global height
+    global hazards
 
-    for x in range(80):
-        for y in range(60):
-            checkfield(g, x, y, 0)
+    for h in hazards:
+        checkfield(g, h.x, h.y)
+#    print(g)
+#    sleep(10)
+    g[np.where(g[:, :] == 0)] = 1
     g[np.where(g[:, :] >= 16)] = 0
     g[np.where(g[:, :] == 2)] = 1
     return float(np.count_nonzero(g == 1)) / (80 * 60)
@@ -117,6 +120,7 @@ class Player:
     def step(self, game):
         global terminated
         global stepEvent 
+        global percent
 
         nx = self.x + self.sx
         ny = self.y + self.sy
@@ -133,7 +137,9 @@ class Player:
             self.linedone = False
             self.sx, self.sy = 0, 0
             nx, ny = self.x, self.y
-            if reevaluate(game) >= 0.75:
+            percent = reevaluate(game)
+            updateStatus()
+            if percent >= 0.75:
                 terminated = True
                 stepEvent.set()
         self.x, self.y = nx, ny
@@ -172,6 +178,7 @@ def redraw():
             if game[x, y] != -1:
                 pygame.draw.rect(sf, colours[game[x, y]], pygame.Rect(x * brick_size, y * brick_size, brick_size, brick_size))
     pygame.draw.rect(sf, (0, 255, 0), pygame.Rect(players[0].x * brick_size, players[0].y * brick_size, brick_size, brick_size)) 
+    sf.blit(img, (0, 60 * brick_size + 1))
     pygame.display.flip()
 
 async def main():
@@ -181,6 +188,7 @@ async def main():
     global players
     global stepEvent
     global quit
+    global percent
 
     pygame.display.set_mode(size)
     pygame.display.set_caption('Xonix - a simple Python remake')
@@ -192,6 +200,8 @@ async def main():
 
     players.append(Player())
 
+    percent = 0
+    updateStatus()
 
     while not terminated:
         events = pygame.event.get()
