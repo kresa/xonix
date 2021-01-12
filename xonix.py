@@ -25,8 +25,9 @@ def updateStatus():
     global hazardCount
     global font
     global img
+    global lives
 
-    s = f"Level: {hazardCount}      Covered:   {percent*100:.1f}    Xonix was brought to you by KresaSoft"
+    s = f"Level: {hazardCount}      Covered:   {percent*100:.1f}  Lives: {lives}     "
     img = font.render(s, True, (255, 255, 255), (0, 0, 0))
 
 def checkfield(g, x, y):
@@ -62,6 +63,9 @@ class Hazard:
             self.sx = -1
         if self.sy == 0:
             self.sy = -1
+        self.start()
+
+    def start(self):
         self.task = asyncio.create_task(self.run())
 
     def step(self, game):
@@ -121,6 +125,7 @@ class Player:
         global terminated
         global stepEvent 
         global percent
+        global lives
 
         nx = self.x + self.sx
         ny = self.y + self.sy
@@ -137,10 +142,14 @@ class Player:
             self.linedone = False
             self.sx, self.sy = 0, 0
             nx, ny = self.x, self.y
-            percent = reevaluate(game)
+            npercent = reevaluate(game)
+            if npercent > 0.5 and percent <= 0.5:
+                lives += 1
+            percent = npercent
             updateStatus()
             if percent >= 0.75:
                 terminated = True
+                lives += 1
                 stepEvent.set()
         self.x, self.y = nx, ny
 #        print(f"player {self.x=}, {self.y=}")
@@ -189,18 +198,24 @@ async def main():
     global stepEvent
     global quit
     global percent
+    global won
+    global lives
+    global hazardCount
 
     pygame.display.set_mode(size)
     pygame.display.set_caption('Xonix - a simple Python remake')
 
     stepEvent = asyncio.Event()
 
-    for i in range(hazardCount):
-        hazards.append(Hazard())
+    if len(hazards) == 0:
+        for i in range(hazardCount):
+            hazards.append(Hazard())
+    else:
+        for i in range(hazardCount):
+            hazards[i].start()
 
     players.append(Player())
 
-    percent = 0
     updateStatus()
 
     while not terminated:
@@ -214,6 +229,11 @@ async def main():
                 if e.key == pygame.K_q:
                     terminated = True
                     quit = True
+                if e.key == pygame.K_r:
+                    terminated = True
+                    won = False
+                    lives = 0
+                    hazardCount = 1
         stepEvent.set()
         redraw()
         await asyncio.sleep(0.01)
@@ -223,27 +243,40 @@ async def main():
     await players[0].finish()
 
     del players[0]
-    for i in range(hazardCount):
-        del hazards[0]
+    if won or lives == 0:
+        for i in range(hazardCount):
+            del hazards[0]
 
 quit = False
 
+lives = 0
+
+won = True
+
+hazards = []
+
 while not quit:
     terminated = False
-    won = True
-    game = np.zeros((80, 60), dtype='B')
+    if won or lives == 0:
+        game = np.zeros((80, 60), dtype='B')
 
-    game[0, :] = [ 1 for i in range(60) ]
-    game[79, :] = [ 1 for i in range(60) ]
-    game[:, 0] = [ 1 for i in range(80) ]
-    game[:, 59] = [ 1 for i in range(80) ]
+        game[0, :] = [ 1 for i in range(60) ]
+        game[79, :] = [ 1 for i in range(60) ]
+        game[:, 0] = [ 1 for i in range(80) ]
+        game[:, 59] = [ 1 for i in range(80) ]
+        percent = 0
+    elif not won:
+        lives -= 1
+        game[np.where(game[:, :] == 2)] = 0
+        game[np.where(game[:, :] == 10)] = 0
+
+    won = True
 
     stepEvent = None
     
-    hazards = []
-
     players = []
     
     asyncio.run(main())
+
     if won:
         hazardCount += 1
