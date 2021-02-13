@@ -18,6 +18,16 @@ img = font.render('XXXXX', True, (255, 255, 255), (0, 0, 0))
 size = width, height = 640, 480 + img.get_rect().height
 pygame.display.set_mode(size)
 
+initialLevel = 1
+initialLives = 0
+
+if len(sys.argv) == 2:
+    initialLevel = int(sys.argv[1])
+
+if len(sys.argv) == 3:
+    initialLevel = int(sys.argv[1])
+    initialLives = int(sys.argv[2])
+
 percent = 0.0
 
 def updateStatus():
@@ -255,6 +265,8 @@ won = True
 
 hazards = []
 
+hazardCount = initialLevel
+
 while not quit:
     terminated = False
     if won or lives == 0:
@@ -265,6 +277,7 @@ while not quit:
         game[:, 0] = [ 1 for i in range(80) ]
         game[:, 59] = [ 1 for i in range(80) ]
         percent = 0
+        lives = initialLives
     elif not won:
         lives -= 1
         game[np.where(game[:, :] == 2)] = 0
